@@ -3,9 +3,7 @@ use std::{
     io::{BufRead, BufReader},
 };
 
-use indexmap::IndexMap;
-
-use crate::object::Object;
+use crate::object::{Attr, Object};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParserErr {
@@ -19,7 +17,7 @@ pub enum ParserErr {
 
 #[derive(Debug)]
 pub struct Parser {
-    pub attr: IndexMap<String, Vec<String>>,
+    pub attr: Vec<Attr>,
     pub class: Vec<String>,
     pub object: Vec<Object>,
 }
@@ -27,7 +25,7 @@ pub struct Parser {
 impl Parser {
     pub fn parse(filename: &str) -> Result<Self, ParserErr> {
         let mut parser = Self {
-            attr: IndexMap::new(),
+            attr: vec![],
             class: vec![],
             object: vec![],
         };
@@ -47,7 +45,10 @@ impl Parser {
                 "objects {" => {
                     parser.parse_block(&mut lines, Parser::parse_object)?
                 }
-                _ => return Err(ParserErr::UnexpectedFormat),
+                "" => {}
+                _ => {
+                    return Err(ParserErr::UnexpectedFormat);
+                }
             }
         }
 
@@ -87,7 +88,10 @@ impl Parser {
 
         let values: Vec<String> =
             parts[1].split_whitespace().map(|s| s.to_string()).collect();
-        self.attr.insert(parts[0].to_string(), values);
+        self.attr.push(Attr {
+            name: parts[0].to_string(),
+            values,
+        });
         Ok(())
     }
 

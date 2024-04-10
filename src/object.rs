@@ -18,3 +18,9 @@ impl Object {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct Attr {
+    pub name: String,
+    pub values: Vec<String>,
+}
