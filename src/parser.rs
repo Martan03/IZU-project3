@@ -1,8 +1,9 @@
 use std::{
-    collections::HashMap,
     fs::File,
     io::{BufRead, BufReader},
 };
+
+use indexmap::IndexMap;
 
 use crate::object::Object;
 
@@ -18,7 +19,7 @@ pub enum ParserErr {
 
 #[derive(Debug)]
 pub struct Parser {
-    pub attr: HashMap<String, Vec<String>>,
+    pub attr: IndexMap<String, Vec<String>>,
     pub class: Vec<String>,
     pub object: Vec<Object>,
 }
@@ -26,7 +27,7 @@ pub struct Parser {
 impl Parser {
     pub fn parse(filename: &str) -> Result<Self, ParserErr> {
         let mut parser = Self {
-            attr: HashMap::new(),
+            attr: IndexMap::new(),
             class: vec![],
             object: vec![],
         };
@@ -36,16 +37,17 @@ impl Parser {
 
         let mut lines = reader.lines().filter_map(|l| l.ok()).into_iter();
         while let Some(line) = lines.next() {
-            if line.starts_with("attributes {") {
-                parser.parse_block(&mut lines, |p, s| p.parse_attr(s))?;
-            } else if line.starts_with("classes {") {
-                parser.parse_block(&mut lines, |p, s| p.parse_class(s))?;
-            } else if line.starts_with("objects {") {
-                parser.parse_block(&mut lines, |p, s| p.parse_object(s))?;
-            } else if line.trim().is_empty() {
-                continue;
-            } else {
-                return Err(ParserErr::UnexpectedFormat);
+            match line.trim() {
+                "attributes {" => {
+                    parser.parse_block(&mut lines, Parser::parse_attr)?
+                }
+                "classes {" => {
+                    parser.parse_block(&mut lines, Parser::parse_class)?
+                }
+                "objects {" => {
+                    parser.parse_block(&mut lines, Parser::parse_object)?
+                }
+                _ => return Err(ParserErr::UnexpectedFormat),
             }
         }
 
