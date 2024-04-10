@@ -10,6 +10,7 @@ fn main() -> Result<(), ParserErr> {
     let parser = Parser::parse("model-xsleza26.txt")?;
 
     let objects: Vec<&Object> = parser.object.iter().collect();
+    /*
     let cnt = class_cnt(&objects);
 
     let mut emp = 0.0;
@@ -22,41 +23,46 @@ fn main() -> Result<(), ParserErr> {
         let e = attr_entropy(emp, id, &attr.values, &objects);
         println!("{e}");
     }
+    */
+    id3(&objects, &parser.attr);
 
     Ok(())
 }
-/*
-fn id3(mp: Vec<String>, mv: Vec<String>) {
-    if mp.iter().all(|x| *x == mp[0]) {
-        println!("{}", mp[0]);
+
+fn id3(mp: &Vec<&Object>, mv: &Vec<Attr>) {
+    let cnt = class_cnt(mp);
+    if cnt.len() == 1 {
+        // Return leaf node with the one class
         return;
     }
 
     if mv.is_empty() {
-        println!("Disjunkce");
+        // Return leaf node with disjunction of all classes in mp
         return;
     }
 
-    let attr = highest_entropy(&mp, &mv);
-    // Remove attr from `mv`
-}
-
-fn highest_entropy(mp: &Vec<String>, mv: &Vec<Attr>) -> String {
+    // Make attribute with highest entropy node, remove it from mv and continue
+    let emp = cnt.values().map(|v| entropy(*v, mp.len())).sum();
+    let mut e: Vec<f64> = vec![];
     for (id, attr) in mv.iter().enumerate() {
-        for value in attr.attr {
-
-        }
+        let val = attr_entropy(emp, id, &attr.values, mp);
+        println!("{val}");
+        e.push(val);
     }
-    "IDK".to_string()
+
+    let max = e
+        .iter()
+        .enumerate()
+        .max_by(|(_, a), (_, b)| a.total_cmp(b))
+        .map(|(id, _)| id)
+        .unwrap_or(0);
+
+    // For each value of the attribute create new branch
+    // (mp with only that value)
+
+    // Call recursively
 }
 
-fn attr_entropy(mp: &Vec<String>, values: &Vec<String>) -> f64 {
-    let mut sum = 0.0;
-    for value in values {
-        let obj = mp.iter().filter(|&x| )
-    }
-    0.0
-}*/
 fn class_cnt(objects: &Vec<&Object>) -> HashMap<String, usize> {
     let mut cnt: HashMap<String, usize> = HashMap::new();
     for obj in objects {
