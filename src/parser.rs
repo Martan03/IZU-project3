@@ -1,4 +1,5 @@
 use std::{
+    fmt::Display,
     fs::File,
     io::{BufRead, BufReader},
 };
@@ -13,6 +14,23 @@ pub enum ParserErr {
     InvalidClassName(String),
     InvalidOrder,
     InvalidObject,
+}
+
+impl Display for ParserErr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParserErr::ReadErr => write!(f, "error reading file"),
+            ParserErr::NotEndedBlock => write!(f, "block not ended"),
+            ParserErr::UnexpectedFormat => write!(f, "unexpected file format"),
+            ParserErr::InvalidClassName(class) => {
+                write!(f, "invalid class name '{}'", class)
+            }
+            ParserErr::InvalidOrder => {
+                write!(f, "objects before attributes and classes")
+            }
+            ParserErr::InvalidObject => write!(f, "invalid object format"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -33,7 +51,7 @@ impl Parser {
         let file = File::open(filename).map_err(|_| ParserErr::ReadErr)?;
         let reader = BufReader::new(file);
 
-        let mut lines = reader.lines().filter_map(|l| l.ok()).into_iter();
+        let mut lines = reader.lines().map_while(std::io::Result::ok);
         while let Some(line) = lines.next() {
             match line.trim() {
                 "attributes {" => {
@@ -64,7 +82,7 @@ impl Parser {
         T: Iterator<Item = String>,
         F: Fn(&mut Parser, &str) -> Result<(), ParserErr>,
     {
-        while let Some(line) = lines.next() {
+        for line in lines.by_ref() {
             let trim = line.trim();
             if trim == "}" {
                 return Ok(());

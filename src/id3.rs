@@ -6,7 +6,7 @@ use crate::{
 };
 
 /// Generates desicion tree using id3 algorithm
-pub fn id3(id: &mut usize, mp: &Vec<&Object>, mv: &Vec<&Attr>) -> Node {
+pub fn id3(id: &mut usize, mp: &Vec<&Object>, mv: &[&Attr]) -> Node {
     let cnt = class_cnt(mp);
     if cnt.len() == 1 {
         return class_leaf(id, mp);
@@ -16,57 +16,31 @@ pub fn id3(id: &mut usize, mp: &Vec<&Object>, mv: &Vec<&Attr>) -> Node {
         return dis_class_leaf(id, mp);
     }
 
-    // Make attribute with highest entropy node, remove it from mv and continue
-    let emp = cnt.values().map(|v| entropy(*v, mp.len())).sum();
-    let mut e: Vec<f64> = vec![];
-    let mut label = Vec::<String>::new();
-    for attr in mv.iter() {
-        let val = attr_entropy(emp, attr.id, &attr.values, mp);
-        e.push(val);
-        label.push(format!("{}={:.4}", attr.name, val));
-    }
-
-    let max = e
-        .iter()
-        .enumerate()
-        .max_by(|(_, a), (_, b)| a.total_cmp(b))
-        .map(|(id, _)| id)
-        .unwrap_or(0);
-
-    // For each value of the attribute create new branch
-    // (mp with only that value)
+    let (max, labels) = highest_gain(&cnt, mp, mv);
     let mut node = Node::leaf(
         format!("uzel{}", *id),
-        format!("{}|{{{}}}", mv[max].name, label.join("|")),
+        format!("{}|{{{}}}", mv[max].name, labels.join("|")),
     );
 
-    let mut mv = mv.clone();
+    let mut mv = mv.to_owned();
     let attr = mv.remove(max);
     *id += 1;
 
     for value in attr.values.iter() {
         let mpi: Vec<&Object> = mp
             .iter()
-            .filter(|o| o.attr.contains(&value))
-            .map(|v| *v)
+            .filter(|o| o.attr[attr.id] == *value)
+            .copied()
             .collect();
         if mpi.is_empty() {
             continue;
         }
-        let mut child = id3(id, &mpi, &mv);
-        child.trans = format!(
-            "{} {{{}}}",
-            value,
-            mpi.iter()
-                .map(|o| o.id.to_string())
-                .collect::<Vec<String>>()
-                .join(",")
-        );
-        node.children.push(child);
+        node.add_child(id3(id, &mpi, &mv), value, &mpi);
     }
     node
 }
 
+/// Gets count of each class
 fn class_cnt(objects: &Vec<&Object>) -> HashMap<String, usize> {
     let mut cnt: HashMap<String, usize> = HashMap::new();
     for obj in objects {
@@ -77,19 +51,39 @@ fn class_cnt(objects: &Vec<&Object>) -> HashMap<String, usize> {
     cnt
 }
 
-fn attr_entropy(
+/// Gets index of the attribute with highest gain and labels
+fn highest_gain(
+    cnt: &HashMap<String, usize>,
+    mp: &[&Object],
+    mv: &[&Attr],
+) -> (usize, Vec<String>) {
+    let emp = cnt.values().map(|v| entropy(*v, mp.len())).sum();
+    let mut labels = Vec::<String>::new();
+
+    let mut max = 0.0;
+    let mut max_id = 0;
+    for (id, attr) in mv.iter().enumerate() {
+        let val = attr_gain(emp, attr.id, &attr.values, mp);
+        labels.push(format!("{}={:.4}", attr.name, val));
+
+        if val > max {
+            max = val;
+            max_id = id;
+        }
+    }
+    (max_id, labels)
+}
+
+/// Gets attribute gain
+fn attr_gain(
     emp: f64,
     id: usize,
     vals: &Vec<String>,
-    objs: &Vec<&Object>,
+    objs: &[&Object],
 ) -> f64 {
     let mut e = emp;
-    for attr in vals {
-        let obj = objs
-            .iter()
-            .filter(|x| x.attr[id] == *attr)
-            .map(|v| *v)
-            .collect();
+    for v in vals {
+        let obj = objs.iter().filter(|x| x.attr[id] == *v).copied().collect();
 
         let cnt = class_cnt(&obj);
         let val = (obj.len() as f64 / objs.len() as f64)
@@ -99,13 +93,14 @@ fn attr_entropy(
     e
 }
 
+/// Gets entropy
 fn entropy(dividend: usize, divisor: usize) -> f64 {
     let frac = dividend as f64 / divisor as f64;
     -frac * f64::log2(frac)
 }
 
 /// Gets class leaf
-fn class_leaf(id: &mut usize, mp: &Vec<&Object>) -> Node {
+fn class_leaf(id: &mut usize, mp: &[&Object]) -> Node {
     *id += 1;
     Node::leaf(
         format!("uzel{}", *id - 1),
@@ -114,7 +109,7 @@ fn class_leaf(id: &mut usize, mp: &Vec<&Object>) -> Node {
 }
 
 /// Gets class leaf with class disjunction
-fn dis_class_leaf(id: &mut usize, mp: &Vec<&Object>) -> Node {
+fn dis_class_leaf(id: &mut usize, mp: &[&Object]) -> Node {
     *id += 1;
     Node::leaf(
         format!("uzel{}", *id - 1),
