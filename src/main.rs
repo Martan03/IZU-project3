@@ -10,6 +10,7 @@ fn main() -> Result<(), ParserErr> {
     let parser = Parser::parse("model-xsleza26.txt")?;
 
     let objects: Vec<&Object> = parser.object.iter().collect();
+    let attrs: Vec<&Attr> = parser.attr.iter().collect();
     /*
     let cnt = class_cnt(&objects);
 
@@ -24,30 +25,33 @@ fn main() -> Result<(), ParserErr> {
         println!("{e}");
     }
     */
-    id3(&objects, &parser.attr);
+    id3(&objects, &attrs);
 
     Ok(())
 }
 
-fn id3(mp: &Vec<&Object>, mv: &Vec<Attr>) {
+fn id3(mp: &Vec<&Object>, mv: &Vec<&Attr>) {
     let cnt = class_cnt(mp);
     if cnt.len() == 1 {
         // Return leaf node with the one class
+        println!("uzel [label=\"{}\"]", mp.first().unwrap().class);
         return;
     }
 
     if mv.is_empty() {
         // Return leaf node with disjunction of all classes in mp
+        println!("uzel disjunkce");
         return;
     }
 
     // Make attribute with highest entropy node, remove it from mv and continue
     let emp = cnt.values().map(|v| entropy(*v, mp.len())).sum();
     let mut e: Vec<f64> = vec![];
+    let mut label = Vec::<String>::new();
     for (id, attr) in mv.iter().enumerate() {
         let val = attr_entropy(emp, id, &attr.values, mp);
-        println!("{val}");
         e.push(val);
+        label.push(format!("{}={:.4}", attr.name, val));
     }
 
     let max = e
@@ -56,11 +60,29 @@ fn id3(mp: &Vec<&Object>, mv: &Vec<Attr>) {
         .max_by(|(_, a), (_, b)| a.total_cmp(b))
         .map(|(id, _)| id)
         .unwrap_or(0);
+    println!("ruzel [label=\"{}|{{{}}}\"]", mv[max].name, label.join("|"));
+
+    let mut mv = mv.clone();
+    let attr = mv.remove(max);
 
     // For each value of the attribute create new branch
     // (mp with only that value)
-
-    // Call recursively
+    for value in attr.values.iter() {
+        let mpi: Vec<&Object> = mp
+            .iter()
+            .filter(|o| o.attr.contains(&value))
+            .map(|v| *v)
+            .collect();
+        println!(
+            "uzel -> uzel [label=\"{} {{{}}}\"]",
+            value,
+            mpi.iter()
+                .map(|o| o.id.to_string())
+                .collect::<Vec<String>>()
+                .join(",")
+        );
+        id3(&mpi, &mv);
+    }
 }
 
 fn class_cnt(objects: &Vec<&Object>) -> HashMap<String, usize> {
