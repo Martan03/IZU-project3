@@ -21,6 +21,7 @@ impl Object {
 
 #[derive(Debug)]
 pub struct Attr {
+    pub id: usize,
     pub name: String,
     pub values: Vec<String>,
 }

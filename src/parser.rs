@@ -86,9 +86,11 @@ impl Parser {
             return Err(ParserErr::UnexpectedFormat);
         }
 
-        let values: Vec<String> =
+        let values =
             parts[1].split_whitespace().map(|s| s.to_string()).collect();
+
         self.attr.push(Attr {
+            id: self.attr.len(),
             name: parts[0].to_string(),
             values,
         });
